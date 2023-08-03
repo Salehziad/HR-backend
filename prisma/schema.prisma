@@ -1,0 +1,181 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+//  docker run --name mysql -d \\n    -p 3306:3306 \\n    -e MYSQL_ROOT_PASSWORD=test \\n    --restart unless-stopped \\n    mysql:8
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = "mysql://root:test@localhost:3306/hr"
+}
+
+model User {
+  id         String    @id @default(uuid())
+  email      String    @unique
+  password   String
+  role       UserRole // Enum: "ADMIN", "EMPLOYEE"
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  employee   Employee? @relation(fields: [employeeId], references: [id])
+  employeeId String?
+  admin      Admin?    @relation(fields: [adminId], references: [id])
+  adminId    String?
+}
+
+model Admin {
+  id        String   @id @default(uuid())
+  name      String
+  email     String
+  company   Company  @relation(fields: [companyId], references: [id])
+  companyId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  User      User[]
+}
+
+model Company {
+  id          String         @id @default(uuid())
+  name        String
+  description String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  admins      Admin[] // Admins associated with this company
+  employees   Employee[] // Employees associated with this company
+  events      CompanyEvent[]
+  department  Department[]
+}
+
+model Employee {
+  id                   String             @id @default(uuid())
+  name                 String
+  email                String
+  birthday             DateTime // Add the birthday field
+  annualLeaveBalance   Int                @default(0)
+  personalLeaveBalance Int                @default(0)
+  company              Company            @relation(fields: [companyId], references: [id])
+  companyId            String
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  leaveRequests        LeaveRequest[]
+  User                 User[]
+  Payroll              Payroll[]
+  EmployeeDocument     EmployeeDocument[]
+  EmployeeSurvey       EmployeeSurvey[]
+  EmployeeFeedback     EmployeeFeedback[]
+  Department           Department?        @relation(fields: [departmentId], references: [id])
+  departmentId         String?
+  ompanyEvents         CompanyEvent[]     @relation("EmployeeCompanyEvents") // Link to CompanyEvent
+}
+
+model LeaveRequest {
+  id         String      @id @default(uuid())
+  type       LeaveType // Enum: "Annual", "Personal", etc.
+  startDate  DateTime
+  endDate    DateTime
+  status     LeaveStatus // Enum: "Pending", "Approved", "Rejected", etc.
+  employee   Employee    @relation(fields: [employeeId], references: [id])
+  employeeId String
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+}
+
+enum LeaveType {
+  ANNUAL
+  PERSONAL
+  // Add other leave types as needed
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  // Add other leave status options as needed
+}
+
+model Payroll {
+  id          String   @id @default(uuid())
+  month       DateTime // The month for which the payroll is generated
+  basicSalary Float // Employee's basic salary for the month
+  allowances  Float // Additional allowances for the month
+  deductions  Float // Deductions from the salary for the month
+  totalSalary Float // Total salary for the month (basic + allowances - deductions)
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  employeeId  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model EmployeeDocument {
+  id          String   @id @default(uuid())
+  title       String // Title of the document (e.g., Contract, ID Proof, Resume, etc.)
+  description String?
+  fileUrl     String // URL to access the document file
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  employeeId  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model EmployeeSurvey {
+  id               String             @id @default(uuid())
+  title            String // Title of the survey
+  description      String?
+  questions        String // JSON string containing the array of survey questions
+  employee         Employee           @relation(fields: [employeeId], references: [id])
+  employeeId       String
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  EmployeeFeedback EmployeeFeedback[]
+}
+
+model EmployeeFeedback {
+  id               String          @id @default(uuid())
+  survey           EmployeeSurvey? @relation(fields: [employeeSurveyId], references: [id]) // The survey associated with the feedback
+  answers          String // Array of answers to survey questions
+  employee         Employee        @relation(fields: [employeeId], references: [id])
+  employeeId       String
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  employeeSurveyId String?
+}
+
+model CompanyEvent {
+  id          String     @id @default(uuid())
+  title       String
+  description String?
+  startDate   DateTime
+  endDate     DateTime
+  location    String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  employees   Employee[] @relation("EmployeeCompanyEvents") // Link to Employee
+  Company     Company?   @relation(fields: [companyId], references: [id])
+  companyId   String?
+}
+
+model PublicHoliday {
+  id        String   @id @default(uuid())
+  name      String
+  date      DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Department {
+  id          String     @id @default(uuid())
+  name        String
+  description String?
+  employees   Employee[]
+  company     Company    @relation(fields: [companyId], references: [id])
+  companyId   String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+enum UserRole {
+  ADMIN
+  EMPLOYEE
+  // Add other roles as needed
+}
